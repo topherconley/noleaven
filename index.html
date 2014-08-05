@@ -1,52 +1,87 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-
   <head>
-    <meta charset='utf-8'>
+    <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <meta name="description" content="noleaven : Filtering low expressing genes in RNAseq assays">
+    <title>noleaven by topherconley</title>
 
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="javascripts/scale.fix.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 
-    <title>noleaven</title>
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
   </head>
-
   <body>
-
-    <!-- HEADER -->
-    <div id="header_wrap" class="outer">
-        <header class="inner">
-          <a id="forkme_banner" href="https://github.com/topherconley/noleaven">View on GitHub</a>
-
-          <h1 id="project_title">noleaven</h1>
-          <h2 id="project_tagline">Filtering low expressing genes in RNAseq assays</h2>
-
-            <section id="downloads">
-              <a class="zip_download_link" href="https://github.com/topherconley/noleaven/zipball/master">Download this project as a .zip file</a>
-              <a class="tar_download_link" href="https://github.com/topherconley/noleaven/tarball/master">Download this project as a tar.gz file</a>
-            </section>
-        </header>
-    </div>
-
-    <!-- MAIN CONTENT -->
-    <div id="main_content_wrap" class="outer">
-      <section id="main_content" class="inner">
+    <div class="wrapper">
+      <header>
+        <h1>noleaven</h1>
+        <p>Filtering low expressing genes in RNAseq assays</p>
+        <p class="view"><a href="https://github.com/topherconley/noleaven">View the Project on GitHub <small>topherconley/noleaven</small></a></p>
+        <ul>
+          <li><a href="https://github.com/topherconley/noleaven/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/topherconley/noleaven/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/topherconley/noleaven">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
         <h1>
 <a name="noleaven" class="anchor" href="#noleaven"><span class="octicon octicon-link"></span></a>noleaven</h1>
 
-<p>Filtering low expressing genes in RNAseq assays</p>
+<h2>
+<a name="motivation-and-purpose" class="anchor" href="#motivation-and-purpose"><span class="octicon octicon-link"></span></a>Motivation and Purpose</h2>
+
+<p>RNAseq assays often exhibit thousands genetic loci with extremely low expression that are irrelevant to downstream statistical analysis. Low expressed genetic loci arise because of sample preparation, tissue type sampled, treatment, and more. Low-expressing loci, not due to treatment effects, diminish power of differential expression (DE) testing because their signal/noise ratio is too small to actuallly detect DE status and they could add significant penalty in the multiple testing correction. They may also increase the computational complexity in downstream analyses. This R package is useful for filtering out these low-expressing genes that have no relation to treatment effects in a way that respects time-course designs with multiple treatments (e.g. genotype). The package's name, noleaven, refers to identifying and removing genes that have no appreciable rise in coverage (like unleavened bread) to consider for downstream statistical analysis.  </p>
+
+<h2>
+<a name="extension-of-edger-user-guide-filtering" class="anchor" href="#extension-of-edger-user-guide-filtering"><span class="octicon octicon-link"></span></a>Extension of edgeR User Guide filtering</h2>
+
+<p>The popular Bioconductor package, edgeR, has a user guide that gives an examples of how to filter out lowly expressing genes. However, the filter <em>is not entirely cognizant of treatment or time considerations</em>. For example, For example, on page 43 they describe an experiment of 4 replicates per treatment (wild-type/transgenic) on mice. They require at least 4 out of 8 replicates to have a minimum of 1 count per million reads. For simplicity of numbers, suppose that each library has 10 million reads and consider two genes assayed: </p>
+
+<ul>
+<li>gene A = [wild-type = (0,10,10,0), transgenic = (0,0,10,10)]</li>
+<li>gene B = [wild-type = (10,11,10,14), transgenetic = (0,1,3,4)]</li>
+</ul><p>The motivation of the filter is to exclude mRNA sequences that are not represented in at least one of the treatment groups; although, this is goal is not entirely attained with the present edgeR filtering guide: in this example, genes that have 2 out of 4 replicates satisfying the minimum count in each treatment group, but are zero in the other remaining replicates could be kept.  So gene A would be kept when it should be filtered out for unreliability. It is more intuitive <em>to flag low-expressing genes within treatment and/or time point and then ulitimately filter out the genes that do not pass any of the filter thresholds across treatment and/or time</em>. Such a procedure would keep gene B, but would exclude gene A.  This strategy eliminates only genes that have low coverage across all treatments and preserves genes that exhibit time or treatment-induced low-expression. </p>
+
+<p>Now consider a time-course assay with two genotypes and three time points. Suppose that one might want to filter low expressing genes that don't satisfy a minimum of 10 counts per replicate, for at least 3 out of 4 replicates within at least one (time point, genotype) pair. Consider the same two genes A &amp; B. </p>
+
+<ol>
+<li>Wild Type
+
+<ul>
+<li>gene A = [t1 = (0,1,0,0), t2 = (0,0,33,10), t3 = c(0,0,19,0)]</li>
+<li>gene B = [t1 = c(0,0,0,0), t2 = (0,0,0,0), t3 = (0,0,0,0)]</li>
+</ul>
+</li>
+<li>Transgenic 
+
+<ul>
+<li>gene A = [t1 = (0,0,0,15), t2 = (12,0,0,13), t3 = c(0,0,10,0)]</li>
+<li>gene B = [t1 = c(30,31,45,34), t2 = (0,4,0,3), t3 = (2,0,1,0)]</li>
+</ul>
+</li>
+</ol><p>The edgeR User guide does not comment on how to filter multi-factor experiments such as this. Under the criteria described above, we should filter out gene A, but keep gene B because it has a clear response in the transgenic at the first time point. The <em>noleaven</em> R package easily handles this scenario.  </p>
+
+<p>In summary, <strong>the noleaven R package was designed to identify low-expresing genes within each time and/or treatment constraints and then ultimately filter out those genes that are flagged as low-expressing in all time or treatment groups.</strong></p>
+
+<h2>
+<a name="installation" class="anchor" href="#installation"><span class="octicon octicon-link"></span></a>Installation</h2>
+
+<p>This R package has successfully been installed on Ubuntu. In the terminal enter <code>R CMD INSTALL noleaven/</code>.</p>
+
+<h2>
+<a name="usage-guide" class="anchor" href="#usage-guide"><span class="octicon octicon-link"></span></a>Usage Guide</h2>
+
+<p>A basic example of usage can be found in the repository as a <a href="https://github.com/topherconley/noleaven/blob/master/inst/doc/filter-rnaseq-timecourse-simulation.pdf">pdf</a> or <a href="https://github.com/topherconley/noleaven/blob/master/inst/doc/filter-rnaseq-timecourse-simulation.Rnw">Knitr source code</a>.</p>
       </section>
     </div>
-
-    <!-- FOOTER  -->
-    <div id="footer_wrap" class="outer">
-      <footer class="inner">
-        <p class="copyright">noleaven maintained by <a href="https://github.com/topherconley">topherconley</a></p>
-        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
-      </footer>
-    </div>
-
+    <footer>
+      <p>Project maintained by <a href="https://github.com/topherconley">topherconley</a></p>
+      <p>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></p>
+    </footer>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
     
-
   </body>
 </html>
