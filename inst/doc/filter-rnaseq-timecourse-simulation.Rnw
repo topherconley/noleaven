@@ -1,0 +1,192 @@
+%% LyX 2.0.6 created this file.  For more info, see http://www.lyx.org/.
+%% Do not edit unless you really know what you are doing.
+\documentclass{article}
+\usepackage[sc]{mathpazo}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{verbose,tmargin=2.5cm,bmargin=2.5cm,lmargin=2.5cm,rmargin=2.5cm}
+\setcounter{secnumdepth}{2}
+\setcounter{tocdepth}{2}
+\usepackage{url}
+\usepackage[unicode=true,pdfusetitle,
+ bookmarks=true,bookmarksnumbered=true,bookmarksopen=true,bookmarksopenlevel=2,
+ breaklinks=false,pdfborder={0 0 1},backref=false,colorlinks=false]
+ {hyperref}
+\hypersetup{
+ pdfstartview={XYZ null null 1}}
+\usepackage{breakurl}
+\begin{document}
+
+
+\title{Filtering low expressing genes in RNAseq time course experiment}
+\author{Christopher Conley, Bertrand Perroud, \& Richard Michelmore}
+\maketitle
+
+
+<<setup, include=FALSE, cache=FALSE>>=
+rm(list = ls())
+# set global chunk options
+library(knitr)
+opts_chunk$set(fig.path='figure/minimal-', fig.align='center', fig.show='hold')
+options(replace.assign=TRUE,width=90)
+@
+
+
+\section{Getting Started}
+First load the R library ``noleaven'', which contains the functions we will need.  If you have not yet installed the package, in the terminal enter: R CMD INSTALL noleaven/. Assuming you have a recent version of R, the package should install.
+
+<<sourcing-files>>=
+library(noleaven)
+@
+
+\section{Data simulation and the fundamental data structure}
+
+In this experiment, we will have 4 genes, 5 time points, and 4 replicates.  
+
+<<>>=
+REPNUM <- 4 #four replicates
+TPT <- 5 #five time points
+N <- 1e4  #number of  genes
+@
+
+First we generate count data for each gene according to a negative binomial distribution and assemble it into a  matrix of count values which we will filter. We need to index into the count matrix also using the featIdxList. The indexing generator assumes all genes have the same number of replciates.  
+<<create-simulator>>=
+set.seed(42)
+geneRator <- function(i, nbn, tpt) {
+  nbsize <- sample(seq_len(500), tpt) 
+  nbprob <- runif(tpt)
+  res <- vapply(seq.int(nbsize), 
+        FUN = function(i)
+          rnbinom(n=nbn, size = nbsize[i], prob = nbprob[i]),
+        FUN.VALUE = vector(mode = "numeric", length = nbn))
+  rownames(res) <- rep(paste("feature", i, sep = ""), nbn)
+  colnames(res) <- paste(seq.int(tpt), "tpt", sep = "")
+  res
+}
+@
+
+The data structure representation has the feature names as the row names and the time points as the column names. This is important for preserving feature labels after filtering.  
+
+<<make simulation>>=
+featCounts <- do.call(rbind,lapply(1:N, function(i) geneRator(i,REPNUM,TPT)))
+featIdxList <- makeFeatIdxList(N, REPNUM)
+head(featCounts)
+head(featIdxList)
+@
+\subsection{Accomodating your data to this structure}
+
+Its likely your data is not stored natively in the format described above. We have provided a convenience function to accomdate the native format to the required structure. Suppose for a given genotype, you have 3 time points and four replicates (equal reps for each time point). If that information is represented as a data frame with each row as a feature and the columns arranged as \{ feature name, (time1,rep1), \dots, (time1,rep4), (time2,rep1), \dots (time2,rep4), \dots \}, then the function \emph{wide2LongFormat}  will transform the data appropriately. Here is a simple example. 
+
+
+<<transform-data-frame >>=
+filename <- "~/Downloads/GPC_all_raw_counts_08_21_2013.txt"
+wideData <- read.table(file = filename,
+    header = TRUE, sep = "\t")
+#first two features
+wideData[1:2,]
+#remove 2nd/3rd column
+wideData <- wideData[,-c(2,3)]
+wideData$Contig <- as.character(wideData$Contig)
+#subset data
+subWide <- wideData[1:100,]
+REPNUMWIDE <- 4
+TPTNUMLONG <- 3
+subLong <- wide2LongFormat(subWide, REPNUMWIDE,TPTNUMLONG)
+subLong[1:8,]
+@
+
+\section{Filtering Criterion}
+The filtering criteria requires that a gene has at least minCount read counts for at least minRep replicates and for at least minTpt time points. In the following example, we choose a high filter for illustrative purposes and return a logical vector indicating which of the corresponding features were kept. 
+<<basic filtering>>=
+#first check
+minCount <- 300; minRep <- 4; minTpt <- 1;
+result1 <- checkFeats(featIdxList, featCounts, 
+                      minCount, minRep, minTpt)
+head(result1)
+@
+
+\section{Determing filtering cutoffs}
+
+We visualise the proportion of features kept to choose adequate filtering cutoffs. You will need the following packages to visualise the results. 
+<<load-libraries>>=
+library(ggplot2)
+library(reshape2)
+@
+
+If you do not have these R packages use the command \emph{install.packages(c(``ggplot2'', ``reshape2''))} to install. The following function produces a figure of proportion of features kept according to a range of minCount and minRep values specified by the user. It requires that minCount and minRep be vectors and that minTpt be a scalar (single value). 
+
+<<vis-function>>=
+viewFilterReduction <- function(featIdxList, featCounts, 
+    minCount, minRep, minTpt) {
+  require(ggplot2)
+  require(reshape2)
+  N <- length(featIdxList);
+  result <- sapply(minCount, function(mc)  {
+      sapply(minRep, function(mr) {
+        featIdxKeep <- checkFeats(featIdxList, featCounts, mc, mr, minTpt);   
+        return(sum(featIdxKeep)/N);
+        }) 
+  })
+  rownames(result) <- minRep
+  colnames(result) <- minCount
+  mpf <- melt(result)
+  names(mpf) <- c("min.rep", "min.count", "percent.kept")
+  mpf$min.rep <- as.factor(mpf$min.rep) 
+  return(ggplot(data=mpf, aes(x=min.count, y = percent.kept, colour  = min.rep)) + 
+    geom_line() + labs(x="Minimum Number of Counts", y = "Proportion of Features Kept"))
+}
+@
+
+Here we specify a range of values for minCount and minRep to see their filtering effect on this simulated data set. 
+<<vis-results>>=
+#determine the filtering criteria
+minCount <- c(10, 100,200,300,400); minRep <- 2:4; minTpt <- 2;
+viewFilterReduction(featIdxList, featCounts, 
+                    minCount, minRep, minTpt)
+@
+
+Once you determine suitable parameters, you can capture the filtered data with the function, filterFeats(...). In this instance, the minCount might be a bit higher than usual and is not intended as a default. The 
+choice of how much should be filtered out is up to the investigators. 
+<<>>=
+minCount <- 200; minRep <- 3; minTpt <- 1;
+featCountsFiltered <- filterFeats(featIdxList, featCounts, 
+                                  minCount, minRep, minTpt)
+
+@
+
+\section{Extending filtering to multiple experimental treatments}
+
+But the previous example assumed that there was only one experimental condition. If there are more than one experimental condition, we can take the union of features across all conditions that pass their respective criteria. As illustrated by the example below, each condition may have its own paramtric cut offs of minCount, minRep, and minTpt. The order in which the parameters are recieved correspond to the order of the condition list.
+  <<union-features>>=
+featCountsCondition1 <- do.call(rbind,lapply(1:N, 
+      function(i) 
+      geneRator(i,REPNUM,TPT)))
+featCountsCondition2 <- do.call(rbind,lapply(1:N, 
+      function(i) 
+      geneRator(i,REPNUM,TPT)))
+featCountsCondition3 <- do.call(rbind,lapply(1:N, 
+      function(i) 
+      geneRator(i,REPNUM,TPT)))
+
+featCountsU <- list(featCountsCondition1, 
+    featCountsCondition2,
+    featCountsCondition3)
+minCountU <- c(200,300,400)
+minRepU <- c(2,3,2)
+minTptU <- c(1,2,2)
+featCountsFilteredList <- unionFilterFeats(featIdxList,
+      featCountsU, minCountU, minRepU, minTptU);
+@
+Here we now have the feature observations for each condition that passed the union of their respective criterion.  That is, if it passed the criterion for one of the conditions, it is kept in all conditions.  
+<<>>=
+head(featCountsFilteredList[[1]])
+head(featCountsFilteredList[[2]])
+head(featCountsFilteredList[[3]])
+@
+Note that the filtering paramters in this example might seem odd, but is intended to illustrate the flexibility one has in filtering out according to each experimental condition.
+\section{Session Info}
+<<session-info>>=
+sessionInfo()
+@
+
+\end{document}

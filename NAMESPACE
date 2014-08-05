@@ -1,0 +1,7 @@
+export(checkFeats)
+export(makeFeatIdxList)
+export(viewFilterReduction)
+export(filterFeats)
+export(unionFilterFeats)
+export(wide2LongFormat)
+

@@ -1,0 +1,18 @@
+Package: noleaven 
+Title: Filtering low-coverage loci in RNASeq timecourse. 
+Description: Filters out low-coverage loci in RNAseq timecourse experiments to improve statistical power in downstream differential testing, while accomodating for various experimental treatments.
+URL: http://topherconley.github.io/noleaven/
+Version: 1.0
+Maintainer: Christopher Conley  <cjconley@ucdavis.edu>
+Author: Christopher Conley  <cjconley@ucdavis.edu>
+Depends: R (>= 2.15.2)  
+License: BSD 
+Suggests: doParallel
+Collate:
+    'checkFeats.R'
+    'makeFeatIdx.R'
+    'viewFilterReduction.R'
+    'filterFeats.R'
+    'unionFilterFeats.R'
+    'wide2LongFormat.R'
+    
