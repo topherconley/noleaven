@@ -11,10 +11,9 @@ The popular Bioconductor package, edgeR, has a user guide that gives an examples
 * gene A = [wild-type = (0,10,10,0), transgenic = (0,0,10,10)]
 * gene B = [wild-type = (10,11,10,14), transgenetic = (0,1,3,4)]
 
-The motivation of the filter is to exclude mRNA sequences that are not represented in at least one of the treatment groups; although, this is goal is not entirely attained with the present edgeR filtering guide: in this example, genes that have 2 out of 4 replicates satisfying the minimum count in each treatment group, but are zero in the other remaining replicates could be kept.  So gene A would be kept when it should be filtered out for unreliability. It is more intuitive _to flag low-expressing genes within treatment or time point and then ulitimately filter out the genes that do not pass any of the filter thresholds across treatment or time_. Such a procedure would keep gene B, but would exclude gene A.  This strategy eliminates only genes that have low coverage across all treatments and preserves genes that exhibit time or treatment-induced low-expression. 
+The motivation of the filter is to exclude mRNA sequences that are not represented in at least one of the treatment groups; although, this is goal is not entirely attained with the present edgeR filtering guide: in this example, genes that have 2 out of 4 replicates satisfying the minimum count in each treatment group, but are zero in the other remaining replicates could be kept.  So gene A would be kept when it should be filtered out for unreliability. It is more intuitive _to flag low-expressing genes within treatment and/or time point and then ulitimately filter out the genes that do not pass any of the filter thresholds across treatment and/or time_. Such a procedure would keep gene B, but would exclude gene A.  This strategy eliminates only genes that have low coverage across all treatments and preserves genes that exhibit time or treatment-induced low-expression. 
 
-Now consider a time-course assay with two genotypes and three time points. Suppose that the filter requires
-a minimum count of 10 counts per replicate, for at least 3 out of 4 replicates, for at least one time point. Consider the same two genes A & B. 
+Now consider a time-course assay with two genotypes and three time points. Suppose that one might want to filter low expressing genes that don't satisfy a minimum of 10 counts per replicate, for at least 3 out of 4 replicates within at least one (time point, genotype) pair. Consider the same two genes A & B. 
 
 1. Wild Type
   * gene A = [t1 = (0,1,0,0), t2 = (0,0,33,10), t3 = c(0,0,19,0)]
@@ -24,7 +23,7 @@ a minimum count of 10 counts per replicate, for at least 3 out of 4 replicates, 
   * gene B = [t1 = c(30,31,45,34), t2 = (0,4,0,3), t3 = (2,0,1,0)]
 
 
-The edgeR User guide does not comment on how to handle multi-factor experiments such as this. Under the criteria descriped above, we should filter out gene A, but keep gene B because it has a clear response in the transgenic at the first time point. The noleaven package easily handles this scenario.  
+The edgeR User guide does not comment on how to filter multi-factor experiments such as this. Under the criteria described above, we should filter out gene A, but keep gene B because it has a clear response in the transgenic at the first time point. The _noleaven_ R package easily handles this scenario.  
 
 In summary, __the noleaven R package was designed to identify low-expresing genes within each time and/or treatment constraints and then ultimately filter out those genes that are flagged as low-expressing in all time or treatment groups.__
 
